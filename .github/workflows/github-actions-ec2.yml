@@ -40,6 +40,11 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            # Load NVM
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            
             # Navigate to the backend directory
             cd /home/ubuntu/home/backend
 
@@ -48,6 +53,7 @@ jobs:
 
             # Use PM2 to start your application
             # First, stop any existing process
+            npm install -g pm2
             pm2 delete backend-app || true  # Ignore error if the process doesn't exist
 
             # Start the application with PM2

@@ -2,9 +2,11 @@ name: Deploy to EC2
 
 # Trigger deployment only on push to the main branch
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Node.js CI"]
+    types: 
+      - completed
+    branches: [main]
 
 jobs:
   deploy:

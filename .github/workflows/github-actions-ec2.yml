@@ -1,4 +1,4 @@
-name: Push-to-EC2
+name: Deploy to EC2
 
 # Trigger deployment only on push to the main branch
 on:
@@ -8,63 +8,19 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to EC2 on main branch push
+    name: Clear and Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the files
+      - name: Checkout the repository
         uses: actions/checkout@v2
 
-      - name: Initial Deployment to Server
+      - name: Clear target directory and Deploy files to EC2
         uses: easingthemes/ssh-deploy@main
         env:
           SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
           REMOTE_HOST: ${{ secrets.HOST_DNS }}
           REMOTE_USER: ${{ secrets.USERNAME }}
+          ARGS: "rm -rf ${{ secrets.TARGET_DIR }}/*"
+          SOURCE: "."
           TARGET: ${{ secrets.TARGET_DIR }}
-
-      - name: Setup and Start Application
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST_DNS }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            # Update packages and install Node.js and Apache2
-            sudo apt-get -y update
-            sudo apt-get install -y apache2
-            
-            curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-
-            # Verify Node.js and npm versions
-            node -v
-            npm -v
-
-            # Ensure Apache is running
-            sudo systemctl start apache2
-            sudo systemctl enable apache2
-
-            # Clear the existing frontend files
-            sudo rm -rf /var/www/html/*
-            # Deploy new frontend files
-            sudo cp -R ${TARGET_DIR}/frontend/* /var/www/html/
-
-            # Clear the existing backend application files
-            sudo rm -rf ${TARGET_DIR}/backend/*
-            # Navigate to backend directory (now cleared), and setup new deployment
-            cd ${TARGET_DIR}
-            mkdir -p backend
-            cd backend
-            # Assuming backend files are deployed via the Initial Deployment step or copied here
-            npm install
-
-            # Install PM2 globally and start the backend application
-            sudo npm install -g pm2
-            pm2 start server.js --name backend-app
-            pm2 save
-
-            # Setup PM2 to restart the application automatically on system reboot
-            sudo pm2 startup systemd -u ${{ secrets.USERNAME }} --hp /home/${{ secrets.USERNAME }}
-            sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ${{ secrets.USERNAME }} --hp /home/${{ secrets.USERNAME }}
-

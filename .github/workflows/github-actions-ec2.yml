@@ -33,3 +33,22 @@ jobs:
           SOURCE: "."
           TARGET: ${{ secrets.TARGET_DIR }}
 
+      - name: Install Dependencies and Start Application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Navigate to the backend directory
+            cd /home/ubuntu/home/backend
+
+            # Install dependencies
+            npm install
+
+            # Use PM2 to start your application
+            # First, stop any existing process
+            pm2 delete backend-app || true  # Ignore error if the process doesn't exist
+
+            # Start the application with PM2
+            pm2 start server.js --name backend-app

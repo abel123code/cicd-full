@@ -1,0 +1,59 @@
+name: Push-to-EC2
+
+# Trigger deployment only on push to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy to EC2 on main branch push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the files
+        uses: actions/checkout@v2
+
+      - name: Initial Deployment to Server
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          TARGET: ${{ secrets.TARGET_DIR }}
+
+      - name: Setup and Start Application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST_DNS }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Update and install specific Node.js and npm versions
+            sudo apt-get -y update
+            curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y nodejs=18.19.0-1nodesource1 npm=10.2.5-1nodesource1
+
+            # Verify Node.js and npm versions
+            node -v
+            npm -v
+
+            sudo systemctl start apache2
+            sudo systemctl enable apache2
+
+            # Deploy frontend files (assuming TARGET_DIR is set to the root of your project on the server)
+            sudo cp -R ${TARGET_DIR}/frontend/* /var/www/html/
+
+            # Navigate to backend directory, install dependencies, and start the backend application
+            cd ${TARGET_DIR}/backend
+            npm install
+
+            # Install PM2 globally and start the backend application
+            sudo npm install -g pm2
+            pm2 start server.js --name backend-app
+            pm2 save
+
+            # Setup PM2 to restart the application automatically on system reboot
+            sudo pm2 startup systemd -u ubuntu --hp /home/ubuntu
+            sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
